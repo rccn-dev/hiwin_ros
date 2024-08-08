@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import rospy
 import time
 import actionlib
@@ -397,10 +398,14 @@ if __name__ == '__main__':
                     disable_signals=True)
     if rospy.get_param("use_sim_time", False):
         rospy.logwarn("use_sim_time is set!!!")
-
+    
+    rospy.loginfo("Starting the Hiwin Robot SDK Node")
     robot_ctr = HiwinRobotInterface(robot_ip=robot_ip, connection_level=control_mode,
                                     name=robot_name)
+    
+    rospy.loginfo("Connecting to the robot...")
     robot_ctr.connect()
+    rospy.loginfo("Robot connected: {}".format(robot_ctr.is_connected))
 
     # Highest priority: start the controllers for the robot.
     # (If the controllers don't start in time, MoveIt! won't work.)

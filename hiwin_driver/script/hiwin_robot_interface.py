@@ -11,7 +11,7 @@ CURRENT_FILE_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIRECTORY = os.path.dirname(CURRENT_FILE_DIRECTORY)
 # The .dll file is contained in include\hiwin_robot_sdk\
 HRSDK_DLL_PATH = os.path.join(PARENT_DIRECTORY, "include", "hiwin_robot_sdk",
-                              "HRSDK.dll")
+                              "libHRSDK.so")
 
 
 def degrees_to_radians(angles_in_degrees):
@@ -63,20 +63,26 @@ class HiwinRobotInterface(object):
         self.level = connection_level
         self.robot_id = -1
         self.name = name
+
+        rospy.loginfo("Initializing HiwinRobotInterface")
+        
         # Load the SDK
         # Make sure the SKL library absolute file contains the file
         assert os.path.exists(HRSDK_DLL_PATH), \
             "HRSDK not found. Given path: {path}".format(path=HRSDK_DLL_PATH)
         self.HRSDKLib = cdll.LoadLibrary(HRSDK_DLL_PATH)
-        try:
-            self.HRSDKLib.set_log_level(c_int(3))
-        except AttributeError:
-            pass
+        rospy.loginfo("HRSDK library loaded")
+        rospy.loginfo(self.HRSDKLib.get_hrsdk_version())
+        # try:
+        #     self.HRSDKLib.set_log_level(c_int(3))
+        # except AttributeError:
+        #     rospy.logwarn("Could not set log level for HRSDK library.")
         # Get the callback function
         callback_type = CFUNCTYPE(None, c_uint16, c_uint16,
                                   POINTER(c_uint16), c_int)
         self.callback = callback_type(callback_function)
         self.reconnecting = False  # Used to know if we are trying to reconnect
+        rospy.loginfo("HiwinRobotInterface initialized")
 
     def connect(self):  # type: () -> bool
         """Connect to the Hiwin robot
@@ -87,7 +93,9 @@ class HiwinRobotInterface(object):
         :return
             success: True if connection has succeeded, False otherwise (bool)
         """
-        self.robot_id = self.HRSDKLib.open_connection(self.ip, c_int(self.level),
+        rospy.loginfo("Connection info : IP: {ip}, Level: {level}"
+                      .format(ip=self.ip, level=self.level))
+        self.robot_id = self.HRSDKLib.open_connection(c_char_p(self.ip.encode('utf-8')), c_int(self.level),
                                                       self.callback)
         if self.is_connected():
             success = True
@@ -101,6 +109,7 @@ class HiwinRobotInterface(object):
             rospy.loginfo("HIWIN Robot '{}' successfully connected.".format(self.name))
         else:
             success = False
+            rospy.logwarn("Could not connect to HIWIN robot '{}'.".format(self.name))
         return success
 
     def reconnect(self, trials=5, sec_between_trials=2.0):
@@ -126,7 +135,7 @@ class HiwinRobotInterface(object):
         self.reconnecting = True
 
         # Try to reconnect to the robot
-        for trial in xrange(trials):
+        for trial in range(trials):
             rospy.loginfo('Reconnecting to HIWIN robot "{robot_name}": '
                           'trial #{trial_num}.'.format(robot_name=self.name,
                                                        trial_num=trial+1))
@@ -223,7 +232,7 @@ class HiwinRobotInterface(object):
             version   : HRSDK version (string)
         """
         version = create_string_buffer(15)
-        error_id = self.HRSDKLib.get_HRSDK_version(version)
+        error_id = self.HRSDKLib.get_hrsdk_version(version)
         return error_id, version.value.decode("utf-8")
 
     def get_connection_level(self):
